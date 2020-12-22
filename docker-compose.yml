@@ -1,0 +1,51 @@
+version: "3.8"
+
+services:
+    # DATABASE
+    mongo:
+        container_name: database
+        environment:
+            - MONGO_INITDB_ROOT_USERNAME=$DB_ROOT_USERNAME
+            - MONGO_INITDB_ROOT_PASSWORD=$DB_ROOT_PASSWORD
+        image: mongo:4.4.2
+        volumes:
+            - ./database:/data/db
+        networks:
+            - app-network
+        ports:
+            - "$DB_PORT:$DB_PORT"
+        logging:
+            driver: none
+    # BACKEND
+    nextjs:
+        container_name: $PROJECT_NAME
+        restart: always
+        environment:
+            - DB_USERNAME=$DB_USERNAME
+            - DB_PASSWORD=$DB_PASSWORD
+            - DB_HOST=mongo
+            - DB_PORT=$DB_PORT
+            - DB_NAME=$DB_NAME
+        build:
+            context: .
+            dockerfile: Dockerfile  # CHANGE TO PRODUCTION
+            args:
+              PORT: $APP_PORT
+              BUILD_DEVELOPMENT: $DEVELOPMENT_ENVIRONMENT
+              PROJECT_NAME: $PROJECT_NAME
+        image: nodejs-w-express
+        networks:
+            - app-network
+        ports:
+            - "$APP_PORT:$APP_PORT"
+        volumes: 
+            - ./:/usr/src/
+        links:
+            - mongo
+# VOLUMES
+volumes:
+    database:
+# NETWORKS
+networks:
+  app-network:
+    driver: bridge

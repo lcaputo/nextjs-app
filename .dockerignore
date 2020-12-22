@@ -1,0 +1,9 @@
+# information
+package-lock.json
+node_modules
+README.md
+# parameters
+.gitignore
+.git
+.env
+.next

@@ -1,0 +1,18 @@
+{
+  "name": "learn-starter",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "development": "next dev",
+    "build": "next build",
+    "production": "next start",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@zeit/next-css": "^1.0.1",
+    "dotenv": "^8.2.0",
+    "next": "^10.0.3",
+    "react": "16.13.1",
+    "react-dom": "16.13.1"
+  }
+}
