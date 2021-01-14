@@ -1,0 +1,73 @@
+name: Validate
+
+on:
+  pull_request:
+    branches:
+    - master
+    - develop
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    name: Validación
+    container:
+      image: node:14.15.3
+
+    services:
+      mongo:
+        image: mongo:4.4.2
+        env:
+          MONGO_INITDB_ROOT_USERNAME= ${{DB_ROOT_USERNAME}}
+          MONGO_INITDB_ROOT_PASSWORD= ${{DB_ROOT_PASSWORD}}
+        ports:
+        - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+
+      - name: Pull cache
+        id: cache-python
+        uses: actions/cache@v1
+        with:
+          path: ~/.cache/pip
+          key: monet-webapp-pip-${{ hashFiles('**/base.txt') }}-${{ hashFiles('**/local.txt') }}
+
+      - name: Install dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/local.txt
+
+      - name: Lint flake8
+        run: |
+          flake8 --use-flake8-tabs .
+
+      - name: Tests
+        run: |
+          python manage.py test
+
+  build:
+      runs-on: ubuntu-latest
+      name: Build y Publish
+      needs: validate
+
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v1
+
+        - name: Setup gcloud CLI
+          env:
+            GCP_SA: ${{ secrets.GCP_SA }}
+          run: |
+            echo $GCP_SA | base64 -d > service-account.json && \
+            gcloud auth activate-service-account --key-file=service-account.json && \
+            gcloud auth configure-docker --quiet
+
+        - name: Build y push docker image [PR]
+          env:
+            PR_NUMBER: ${{ github.event.number }}
+          run: |
+            source ./env/test.sh
+            docker build -t us.gcr.io/${PROJECT_ID}/monet-webapp:PR-${PR_NUMBER} --build-arg target_env=test .
+            docker push us.gcr.io/${PROJECT_ID}/monet-webapp:PR-${PR_NUMBER}

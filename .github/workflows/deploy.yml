@@ -1,0 +1,43 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+    - master
+    - develop
+
+jobs:
+  deployment:
+    runs-on: ubuntu-latest
+    name: Build y Publish
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+
+      - name: Setup gcloud CLI
+        env:
+          GCP_SA: ${{ secrets.GCP_SA }}
+        run: |
+          echo $GCP_SA | base64 -d > service-account.json && \
+          gcloud auth activate-service-account --key-file=service-account.json && \
+          gcloud auth configure-docker --quiet
+
+      - name: Extraer nombre branch
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch
+
+      - name: Build y push docker image [Branch]
+        env:
+          BRANCH_NAME: ${{ steps.extract_branch.outputs.branch }}
+        run: |
+          source ./env/test.sh
+          docker build -t us.gcr.io/${PROJECT_ID}/monet-webapp:${BRANCH_NAME} --build-arg target_env=test .
+          docker push us.gcr.io/${PROJECT_ID}/monet-webapp:${BRANCH_NAME}
+
+      - name: K8S deploy
+        run: |
+          source ./env/test.sh
+          gcloud container clusters get-credentials monet-cluster --zone ${ZONE} --project ${PROJECT_ID}
+          ./deploy.sh
